@@ -10,6 +10,7 @@ local carried = false
 local Done = false
 local T = Translation[Lang].MessageOfSystem
 local keepdown
+local deadcam = nil
 
 local function CheckLabel()
     if not carried then
@@ -46,43 +47,78 @@ local function RespawnTimer()
     end)
 end
 
-local function ProcessNewPosition()
+local StartDeathCam = function()
+    ClearFocus()
+
+    local ped = PlayerPedId()
+    local coords = GetEntityCoords(ped)
+    local fov = GetGameplayCamFov()
+
+    deadcam = Citizen.InvokeNative(0x40C23491CE83708E, 'DEFAULT_SCRIPTED_CAMERA', coords, 0, 0, 0, fov)
+
+    SetCamActive(deadcam, true)
+    RenderScriptCams(true, true, 1000, true, false)
+end
+
+local EndDeathCam = function()
+    ClearFocus()
+
+    RenderScriptCams(false, false, 0, true, false)
+    DestroyCam(deadcam, false)
+
+    deadcam = nil
+end
+
+local ProcessNewPosition = function()
     local mouseX = 0.0
     local mouseY = 0.0
-    if (IsInputDisabled(0)) then -- THIS DOESNT EXIST ?
-        mouseX = GetDisabledControlNormal(1, 0x4D8FB4C1) * 1.5
-        mouseY = GetDisabledControlNormal(1, 0xFDA83190) * 1.5
+    local ped = PlayerPedId()
+
+    if IsInputDisabled(0) then
+        mouseX = GetDisabledControlNormal(1, 0x6BC904FC) * 8.0
+        mouseY = GetDisabledControlNormal(1, 0x84574AE8) * 8.0
     else
-        mouseX = GetDisabledControlNormal(1, 0x4D8FB4C1) * 0.5
-        mouseY = GetDisabledControlNormal(1, 0xFDA83190) * 0.5
+        mouseX = GetDisabledControlNormal(1, 0x6BC904FC) * 0.5
+        mouseY = GetDisabledControlNormal(1, 0x84574AE8) * 0.5
     end
+
     angleZ = angleZ - mouseX
     angleY = angleY + mouseY
 
-    if (angleY > 89.0) then angleY = 89.0 elseif (angleY < -89.0) then angleY = -89.0 end
-    local pCoords = GetEntityCoords(PlayerPedId())
-    local behindCam = {
-        x = pCoords.x + ((Cos(angleZ) * Cos(angleY)) + (Cos(angleY) * Cos(angleZ))) / 2 * (3.0 + 0.5),
-        y = pCoords.y + ((Sin(angleZ) * Cos(angleY)) + (Cos(angleY) * Sin(angleZ))) / 2 * (3.0 + 0.5),
-        z = pCoords.z + ((Sin(angleY))) * (3.0 + 0.5)
-    }
-    local rayHandle = StartShapeTestRay(pCoords.x, pCoords.y, pCoords.z + 0.5, behindCam.x, behindCam.y, behindCam.z, -1,
-        PlayerPedId(), 0)
-
-    local hitBool, hitCoords = GetShapeTestResult(rayHandle)
-
-    local maxRadius = 3.0
-    if (hitBool and Vdist(pCoords.x, pCoords.y, pCoords.z + 0.5, hitCoords, 0, 0) < 3.0 + 0.5) then
-        maxRadius = Vdist(pCoords.x, pCoords.y, pCoords.z + 0.5, hitCoords, 0, 0)
+    if angleY > 89.0 then
+        angleY = 89.0
+    elseif angleY < -89.0 then
+        angleY = -89.0
     end
 
-    local offset = {
+    local pCoords = GetEntityCoords(ped)
+
+    local behindCam =
+    {
+        x = pCoords.x + ((Cos(angleZ) * Cos(angleY)) + (Cos(angleY) * Cos(angleZ))) / 2 * (0.5 + 0.5),
+        y = pCoords.y + ((Sin(angleZ) * Cos(angleY)) + (Cos(angleY) * Sin(angleZ))) / 2 * (0.5 + 0.5),
+        z = pCoords.z + ((Sin(angleY))) * (0.5 + 0.5)
+    }
+
+    local rayHandle = StartShapeTestRay(pCoords.x, pCoords.y, pCoords.z + 0.5, behindCam.x, behindCam.y, behindCam.z, -1, ped, 0)
+
+    local _, hitBool, hitCoords, _, _ = GetShapeTestResult(rayHandle)
+
+    local maxRadius = 3.5
+
+    if (hitBool and Vdist(pCoords.x, pCoords.y, pCoords.z + 0.0, hitCoords) < 0.5 + 0.5) then
+        maxRadius = Vdist(pCoords.x, pCoords.y, pCoords.z + 0.0, hitCoords)
+    end
+
+    local offset =
+    {
         x = ((Cos(angleZ) * Cos(angleY)) + (Cos(angleY) * Cos(angleZ))) / 2 * maxRadius,
         y = ((Sin(angleZ) * Cos(angleY)) + (Cos(angleY) * Sin(angleZ))) / 2 * maxRadius,
         z = ((Sin(angleY))) * maxRadius
     }
 
-    local pos = {
+    local pos =
+    {
         x = pCoords.x + offset.x,
         y = pCoords.y + offset.y,
         z = pCoords.z + offset.z
@@ -91,42 +127,22 @@ local function ProcessNewPosition()
     return pos
 end
 
-local function StartDeathCam()
-    ClearFocus()
-    local playerPed = PlayerPedId()
-    local pos = GetEntityCoords(playerPed)
-    cam = CreateCamWithParams("DEFAULT_SCRIPTED_CAMERA", pos.x, pos.y, pos.z, 0, 0, 0, GetGameplayCamFov(), false, 0)
-    SetCamActive(cam, true)
-    RenderScriptCams(true, true, 1000, true, false, 0)
-end
+-- process camera controls
+local ProcessCamControls = function()
+    local ped = PlayerPedId()
+    local playerCoords = GetEntityCoords(ped)
 
-local function ProcessCamControls()
-    local playerCoords
-    if Config.UseControlsCamera then
-        playerCoords = ProcessNewPosition()
-    else
-        playerCoords = GetEntityCoords(PlayerPedId())
-    end
+    -- disable 1st person as the 1st person camera can cause some glitches
+    Citizen.InvokeNative(0x05AB44D906738426)
 
-    local newPos = playerCoords
-    if IsEntityAttachedToAnyPed(PlayerPedId()) then
-        SetCamCoord(cam, newPos.x, newPos.y + -2, newPos.z + 0.50)
-        SetCamRot(cam, -20.0, 0.0, 0.0, 1)
-        SetCamFov(cam, 50.0)
-    else
-        SetCamCoord(cam, newPos.x, newPos.y, newPos.z + 1.0)
-        SetCamRot(cam, -80.0, 0.0, 0.0, 1)
-        SetCamFov(cam, 50.0)
-    end
-end
+    -- calculate new position
+    local newPos = ProcessNewPosition()
 
-local function EndDeathCam()
-    NetworkSetInSpectatorMode(false, PlayerPedId())
-    ClearFocus()
-    RenderScriptCams(false, false, 0, true, false, 0)
-    DestroyCam(cam, false)
-    cam = nil
-    DestroyAllCams(true)
+    -- set coords of cam
+    Citizen.InvokeNative(0xF9EE7D419EE49DE6, deadcam, newPos.x, newPos.y, newPos.z)
+
+    -- set rotation
+    Citizen.InvokeNative(0x948B39341C3A40C2, deadcam, playerCoords.x, playerCoords.y, playerCoords.z)
 end
 
 function CoreAction.Player.ResurrectPlayer(currentHospital, currentHospitalName, justrevive)
@@ -167,8 +183,13 @@ function CoreAction.Player.ResurrectPlayer(currentHospital, currentHospitalName,
         VorpNotification:NotifyLeft(currentHospitalName or T.message6, T.message5, "minigames_hud", "five_finger_burnout",
             8000, "COLOR_PURE_WHITE")
     else
-        DoScreenFadeIn(2000)
+        -- BM Doctor
+        if not LocalPlayer.state.IsUsingMedicalService then
+            DoScreenFadeIn(2000)
+        end
     end
+    -- BM Doctor
+    LocalPlayer.state:set('isdead', false, false)
 end
 
 function CoreAction.Player.RespawnPlayer()
@@ -232,13 +253,55 @@ AddEventHandler("vorp_core:Client:AddTimeToRespawn", function(time)
     end
 end)
 
+AddEventHandler('vorp_core:client:StartDeathCam', function()
+    CreateThread(function()
+        while true do
+            Wait(1000)
+
+            if setDead and deadcam then
+                local active = IsCamRendering(deadcam)
+
+                if not active then
+                    EndDeathCam()
+                    StartDeathCam()
+                end
+            end
+
+            if not Dead and setDead then
+                Dead = true
+
+                Citizen.InvokeNative(0x69D65E89FFD72313, true, true)
+
+                StartDeathCam()
+            elseif Dead and not setDead then
+                Dead = false
+
+                Citizen.InvokeNative(0x69D65E89FFD72313, false, false)
+
+                EndDeathCam()
+            end
+
+            if not setDead then
+                Dead = false
+
+                Citizen.InvokeNative(0x69D65E89FFD72313, false, false)
+
+                EndDeathCam()
+
+                return
+            end
+        end
+    end)
+end)
+
 
 --DEATH HANDLER
 CreateThread(function()
     repeat Wait(1000) until LocalPlayer.state.IsInSession
     while Config.UseDeathHandler do
         local sleep = 1000
-
+        -- BM Doctor
+        LocalPlayer.state:set('isdead', true, false)
         if IsPlayerDead(PlayerId()) then
             if not setDead then
                 setDead = true
@@ -256,32 +319,44 @@ CreateThread(function()
             if not PressKey and setDead then
                 sleep = 0
                 if not IsEntityAttachedToAnyPed(PlayerPedId()) then
-                    PromptSetActiveGroupThisFrame(prompts, CheckLabel())
+                    -- BM Doctor
+                    if not LocalPlayer.state.IsUsingMedicalService then
+                        PromptSetActiveGroupThisFrame(prompts, CheckLabel())
 
-                    if PromptHasHoldModeCompleted(prompt) then
-                        DoScreenFadeOut(3000)
-                        Wait(3000)
-                        CoreAction.Player.RespawnPlayer()
-                        PressKey      = true
-                        carried       = false
-                        Done          = false
-                        TimeToRespawn = Config.RespawnTime
+                        if PromptHasHoldModeCompleted(prompt) then
+                            DoScreenFadeOut(3000)
+                            Wait(3000)
+                            CoreAction.Player.RespawnPlayer()
+                            PressKey      = true
+                            carried       = false
+                            Done          = false
+                            TimeToRespawn = Config.RespawnTime
+                        end
                     end
 
                     if TimeToRespawn >= 1 and setDead then
                         ProcessCamControls()
                         Done = false
-                        PromptSetEnabled(prompt, false)
+                        -- BM Doctor
+                        if not LocalPlayer.state.IsUsingMedicalService then
+                            PromptSetEnabled(prompt, false)
+                        end
                     else
                         ProcessCamControls()
                         Done = true
-                        PromptSetEnabled(prompt, true)
+                        -- BM Doctor
+                        if not LocalPlayer.state.IsUsingMedicalService then
+                            PromptSetEnabled(prompt, true)
+                        end
                     end
                     carried = false
                 else
                     if setDead then
-                        PromptSetActiveGroupThisFrame(prompts, CheckLabel())
-                        PromptSetEnabled(prompt, false)
+                        -- BM Doctor
+                        if not LocalPlayer.state.IsUsingMedicalService then
+                            PromptSetActiveGroupThisFrame(prompts, CheckLabel())
+                            PromptSetEnabled(prompt, false)
+                        end
                         ProcessCamControls()
                         carried = true
                     end
