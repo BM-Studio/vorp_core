@@ -104,9 +104,11 @@ Config = {
     RagdollOnResurrection  = true,                                 -- Enables ragdoll and revive effects upon resurrection.
     HealthRecharge         = { enable = true, multiplier = 0.37 }, -- Auto-recharge for health, with a multiplier for speed.
     StaminaRecharge        = { enable = true, multiplier = 0.4 },  -- Auto-recharge for stamina, with a multiplier for speed.
-    RespawnTime            = 10,                                   -- Time in seconds before a player can respawn.
+    RespawnTime            = 600,                                  -- Time in seconds before a player can respawn.
     RespawnKey             = 0xDFF812F9,                           -- Key code for respawning (default is 'E').
     RespawnKeyTime         = 5000,                                 -- Time in milliseconds to hold the respawn key.
+    CallMedicKey           = 0xE30CD707,                           -- Key code for calling medic (default is 'R').
+    CallMedicKeyTime       = 3000,                                 -- Time in milliseconds to hold the calling medic key.
     CombatLogDeath         = true,                                 -- Combat loggers respawn in a dead state instead of alive.
     UseControlsCamera      = false,                                -- Allows dead or carried players to move the camera with WASD (resource intensive).
     UseDeathHandler        = true,                                 -- Keeps default death handling unless you have a custom system.

@@ -5,18 +5,20 @@ local angleY = 0.0
 local angleZ = 0.0
 local prompts = GetRandomIntInRange(0, 0xffffff)
 local prompt
+local medicprompt
 local PressKey = false
 local carried = false
 local Done = false
 local T = Translation[Lang].MessageOfSystem
 local keepdown
+local Dead = false
 local deadcam = nil
 
 local function CheckLabel()
     if not carried then
         if not Done then
             local label = CreateVarString(10, 'LITERAL_STRING',
-                T.RespawnIn .. TimeToRespawn .. T.SecondsMove .. T.message)
+                T.RespawnIn .. TimeToRespawn .. T.SecondsMove)
             return label
         else
             local label = CreateVarString(10, 'LITERAL_STRING', T.message2)
@@ -231,6 +233,20 @@ CreateThread(function()
     PromptSetGroup(prompt, prompts)
     Citizen.InvokeNative(0xC5F428EE08FA7F2C, prompt, true)
     PromptRegisterEnd(prompt)
+
+    -- BM Doctor
+    str = T.medicprompt
+    keyPress = Config.CallMedicKey
+    medicprompt = PromptRegisterBegin()
+    PromptSetControlAction(medicprompt, keyPress)
+    str = CreateVarString(10, 'LITERAL_STRING', str)
+    PromptSetText(medicprompt, str)
+    PromptSetEnabled(medicprompt, 1)
+    PromptSetVisible(medicprompt, 1)
+    PromptSetHoldMode(medicprompt, Config.CallMedicKeyTime)
+    PromptSetGroup(medicprompt, prompts)
+    Citizen.InvokeNative(0xC5F428EE08FA7F2C, medicprompt, true)
+    PromptRegisterEnd(medicprompt)
 end)
 
 -- EVENTS
@@ -294,19 +310,36 @@ AddEventHandler('vorp_core:client:StartDeathCam', function()
     end)
 end)
 
+AddEventHandler('vorp_core:client:StartCamControl', function()
+    CreateThread(function()
+        while true do
+            Wait(0)
+
+            if deadcam and Dead then
+                ProcessCamControls()
+            end
+
+            if Dead and not deadcam then
+                StartDeathCam()
+            end
+
+            if not setDead then return end
+        end
+    end)
+end)
+
 
 --DEATH HANDLER
 CreateThread(function()
     repeat Wait(1000) until LocalPlayer.state.IsInSession
     while Config.UseDeathHandler do
         local sleep = 1000
-        -- BM Doctor
-        LocalPlayer.state:set('isdead', true, false)
         if IsPlayerDead(PlayerId()) then
             if not setDead then
                 setDead = true
                 PressKey = false
                 PromptSetEnabled(prompt, true)
+                PromptSetEnabled(medicprompt, true)
                 NetworkSetInSpectatorMode(false, PlayerPedId())
                 exports.spawnmanager.setAutoSpawn(false)
                 TriggerServerEvent("vorp:ImDead", true)
@@ -315,6 +348,12 @@ CreateThread(function()
                     RespawnTimer()
                     StartDeathCam()
                 end)
+
+                -- BM Doctor
+                LocalPlayer.state:set('isdead', true, false)
+
+                TriggerEvent('vorp_core:client:StartDeathCam')
+                TriggerEvent('vorp_core:client:StartCamControl')
             end
             if not PressKey and setDead then
                 sleep = 0
@@ -332,17 +371,24 @@ CreateThread(function()
                             Done          = false
                             TimeToRespawn = Config.RespawnTime
                         end
+
+                        if PromptHasHoldModeCompleted(medicprompt) then
+                            PressKey      = true
+                            carried       = false
+                            Done          = false
+                            TimeToRespawn = Config.RespawnTime
+
+                            TriggerEvent('bm-doctor:client:SpawnMedic')
+                        end
                     end
 
                     if TimeToRespawn >= 1 and setDead then
-                        ProcessCamControls()
                         Done = false
                         -- BM Doctor
                         if not LocalPlayer.state.IsUsingMedicalService then
                             PromptSetEnabled(prompt, false)
                         end
                     else
-                        ProcessCamControls()
                         Done = true
                         -- BM Doctor
                         if not LocalPlayer.state.IsUsingMedicalService then
@@ -356,8 +402,8 @@ CreateThread(function()
                         if not LocalPlayer.state.IsUsingMedicalService then
                             PromptSetActiveGroupThisFrame(prompts, CheckLabel())
                             PromptSetEnabled(prompt, false)
+                            PromptSetEnabled(medicprompt, false)
                         end
-                        ProcessCamControls()
                         carried = true
                     end
                 end

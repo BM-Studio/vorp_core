@@ -242,6 +242,7 @@ Translation = {
             YouAreCarried      = "You are being carried by a person",
             promptLabel        = "Respawn",
             prompt             = "Respawn",
+            medicprompt        = "Call Medic",
             wayPoint           = "~e~You need to set a waypoint first!",
             mustBeSeated       = "~e~You must be in the driver's seat!",
             wagonInFront       = "~e~You must be seated or near a wagon to delete it!",
