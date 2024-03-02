@@ -328,6 +328,9 @@ AddEventHandler('vorp_core:client:StartCamControl', function()
     end)
 end)
 
+AddEventHandler('vorp_core:client:ResetPrompts', function()
+    PressKey = false
+end)
 
 --DEATH HANDLER
 CreateThread(function()
