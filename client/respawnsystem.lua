@@ -106,7 +106,7 @@ local ProcessNewPosition = function()
 
     local _, hitBool, hitCoords, _, _ = GetShapeTestResult(rayHandle)
 
-    local maxRadius = 3.5
+    local maxRadius = 5.5
 
     if (hitBool and Vdist(pCoords.x, pCoords.y, pCoords.z + 0.0, hitCoords) < 0.5 + 0.5) then
         maxRadius = Vdist(pCoords.x, pCoords.y, pCoords.z + 0.0, hitCoords)
