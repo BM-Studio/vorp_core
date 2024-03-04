@@ -112,6 +112,7 @@ Config = {
     CombatLogDeath         = true,                                 -- Combat loggers respawn in a dead state instead of alive.
     UseControlsCamera      = false,                                -- Allows dead or carried players to move the camera with WASD (resource intensive).
     UseDeathHandler        = true,                                 -- Keeps default death handling unless you have a custom system.
+    FreezeCamBeforeCall    = true,                                 -- Keep the deathcam frozen before Medic NPC arrives.
     Hospitals              = {                                     -- Spawn points for players respawning at hospitals.
         Valentine = {
             name = "Valentine",

@@ -106,7 +106,11 @@ local ProcessNewPosition = function()
 
     local _, hitBool, hitCoords, _, _ = GetShapeTestResult(rayHandle)
 
-    local maxRadius = 5.5
+    local maxRadius = 3.5
+
+    if IsEntityAttachedToAnyPed(ped) then
+        maxRadius = 4.5
+    end
 
     if (hitBool and Vdist(pCoords.x, pCoords.y, pCoords.z + 0.0, hitCoords) < 0.5 + 0.5) then
         maxRadius = Vdist(pCoords.x, pCoords.y, pCoords.z + 0.0, hitCoords)
@@ -315,7 +319,7 @@ AddEventHandler('vorp_core:client:StartCamControl', function()
         while true do
             Wait(0)
 
-            if deadcam and Dead then
+            if deadcam and Dead and (Config.FreezeCamBeforeCall and LocalPlayer.state.IsUsingMedicalService) then
                 ProcessCamControls()
             end
 
@@ -330,6 +334,7 @@ end)
 
 AddEventHandler('vorp_core:client:ResetPrompts', function()
     PressKey = false
+    setDead = false
 end)
 
 --DEATH HANDLER
