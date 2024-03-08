@@ -173,8 +173,8 @@ function CoreAction.Admin.TeleportToWayPoint()
         return VorpNotification:NotifyRightTip(T.wayPoint, 3000)
     end
 
-    DoScreenFadeOut(500)
-    Wait(1000)
+    -- DoScreenFadeOut(500)
+    -- Wait(1000)
     FreezeEntityPosition(ped, true)
     for i = startingpoint, 0, -25.0 do
         local z = i
@@ -190,8 +190,8 @@ function CoreAction.Admin.TeleportToWayPoint()
             SetEntityCoords(ped, x, y, groundZ, false, false, false, false)
             repeat Wait(0) until HasCollisionLoadedAroundEntity(ped)
             FreezeEntityPosition(ped, false)
-            Wait(1000)
-            DoScreenFadeIn(650)
+            -- Wait(1000)
+            -- DoScreenFadeIn(650)
             break
         end
     end

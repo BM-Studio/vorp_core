@@ -321,6 +321,8 @@ AddEventHandler('vorp_core:client:StartCamControl', function()
 
             if deadcam and Dead and (Config.FreezeCamBeforeCall and LocalPlayer.state.IsUsingMedicalService) then
                 ProcessCamControls()
+            elseif deadcam and Dead and (not Config.FreezeCamBeforeCall and LocalPlayer.state.IsUsingMedicalService) then
+                ProcessCamControls()
             end
 
             if Dead and not deadcam then
