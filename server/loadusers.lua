@@ -5,7 +5,7 @@ _healthData = {}
 local T = Translation[Lang].MessageOfSystem
 
 function LoadUser(source, setKickReason, deferrals, identifier, license)
-    local resultList = MySQL.single.await('SELECT * FROM users WHERE identifier = ?', { identifier })
+    local resultList = MySQL.single.await('SELECT banned, banneduntil FROM users WHERE identifier = ?', { identifier })
 
     if resultList then
         local user = resultList
@@ -81,11 +81,38 @@ local function removePlayer(identifier)
         WhiteListedUsers[userid] = nil
     end
 
-    SetTimeout(3000, function()
+    SetTimeout(5000, function()
         if _users[identifier] then
             _users[identifier] = nil
         end
     end)
+end
+
+local function ReportCrash(reason, _source)
+    local _, _, errorMessage = reason:find("RAGE error:%s(.+)")
+    if not errorMessage then
+        _, _, errorMessage = reason:find("Game crashed:%s(.+)")
+    end
+
+    if errorMessage then
+        local ped = GetPlayerPed(_source)
+        local pcoords = GetEntityCoords(ped)
+        local coords = {
+            x = pcoords.x,
+            y = pcoords.y,
+            z = pcoords.z
+        }
+        local crash_id = string.lower(errorMessage:gsub("%b()", ""))
+        PerformHttpRequest("http://api.gtp-dev.com:8080/api/crashes", function()
+        end, "POST", json.encode({
+            apiKey = Config.API_KEY,
+            crash_id = crash_id,
+            server = GetConvar("sv_projectName", "Unknown"),
+            coords = json.encode(coords)
+        }), {
+            ["Content-Type"] = "application/json"
+        })
+    end
 end
 
 AddEventHandler('playerDropped', function(reason)
@@ -93,9 +120,12 @@ AddEventHandler('playerDropped', function(reason)
     local identifier = GetSteamID(_source)
     savePlayer(_source, reason, identifier)
     removePlayer(identifier)
+    if Config.ReportCrashes and Config.API_KEY ~= "" then
+        ReportCrash(reason, _source)
+    end
 end)
 
---TODO allow to save player when they are still in the server  example of usage is  not have to relog to select another character
+---@todo allow to save player when they are still in the server  example of usage is  not have to relog to select another character
 --[[ AddEventHandler("vorp_core:playerRemove", function(source)
     local _source = source
     local identifier = GetSteamID(_source)
@@ -119,7 +149,7 @@ AddEventHandler("playerJoining", function()
     end
     _usersLoading[identifier] = true
 
-    local user = MySQL.single.await('SELECT * FROM users WHERE identifier = ?', { identifier })
+    local user = MySQL.single.await('SELECT `group`, `warnings`, `char` FROM users WHERE identifier = ?', { identifier })
     if user then
         _users[identifier] = User(_source, identifier, user.group, user.warnings, license, user.char)
         _users[identifier].LoadCharacters()
@@ -232,3 +262,10 @@ RegisterNetEvent("vorp:GetValues", function()
 
     TriggerClientEvent("vorp:GetHealthFromCore", _source, healthData)
 end)
+
+if Config.DeleteFromUsersTable and not Config.Whitelist then
+    MySQL.ready(function()
+        local query = "DELETE FROM users WHERE NOT EXISTS (SELECT 1 FROM characters WHERE characters.identifier = users.identifier);"
+        MySQL.query(query, {})
+    end)
+end

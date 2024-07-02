@@ -21,11 +21,11 @@ local function CheckLabel()
                 T.RespawnIn .. TimeToRespawn .. T.SecondsMove)
             return label
         else
-            local label = CreateVarString(10, 'LITERAL_STRING', T.message2)
+            local label = VarString(10, 'LITERAL_STRING', T.message2)
             return label
         end
     else
-        local label = CreateVarString(10, 'LITERAL_STRING', T.YouAreCarried)
+        local label = VarString(10, 'LITERAL_STRING', T.YouAreCarried)
         return label
     end
 end
@@ -159,6 +159,10 @@ function CoreAction.Player.ResurrectPlayer(currentHospital, currentHospitalName,
     Wait(200)
     EndDeathCam()
     TriggerServerEvent("vorp:ImDead", false)
+
+    TriggerServerEvent("vorp_core:Server:OnPlayerRevive")
+    TriggerEvent("vorp_core:Client:OnPlayerRevive")
+
     setDead = false
     DisplayHud(true)
     DisplayRadar(true)
@@ -186,8 +190,7 @@ function CoreAction.Player.ResurrectPlayer(currentHospital, currentHospitalName,
         AnimpostfxPlay("PlayerWakeUpInterrogation")
         Wait(19000)
         keepdown = false
-        VorpNotification:NotifyLeft(currentHospitalName or T.message6, T.message5, "minigames_hud", "five_finger_burnout",
-            8000, "COLOR_PURE_WHITE")
+        VorpNotification:NotifyLeft(currentHospitalName or T.message6, T.message5, "minigames_hud", "five_finger_burnout", 8000, "COLOR_PURE_WHITE")
     else
         -- BM Doctor
         if not LocalPlayer.state.IsUsingMedicalService then
@@ -198,18 +201,18 @@ function CoreAction.Player.ResurrectPlayer(currentHospital, currentHospitalName,
     LocalPlayer.state:set('isdead', false, false)
 end
 
-function CoreAction.Player.RespawnPlayer()
-    local player = PlayerPedId()
-    TriggerServerEvent("vorp:PlayerForceRespawn")
+function CoreAction.Player.RespawnPlayer(allow)
+    if allow then
+        TriggerServerEvent("vorp:PlayerForceRespawn")
+    end
     TriggerEvent("vorp:PlayerForceRespawn")
     local closestDistance = math.huge
     local closestLocation = ""
     local coords = nil
-    local pedCoords = GetEntityCoords(player)
-    for _, location in pairs(Config.Hospitals) do
+    local pedCoords = GetEntityCoords(PlayerPedId())
+    for key, location in pairs(Config.Hospitals) do
         local locationCoords = vector3(location.pos.x, location.pos.y, location.pos.z)
         local currentDistance = #(pedCoords - locationCoords)
-
         if currentDistance < closestDistance then
             closestDistance = currentDistance
             closestLocation = location.name
@@ -224,19 +227,19 @@ end
 
 -- CREATE PROMPT
 CreateThread(function()
-    Wait(1000)
+    repeat Wait(1000) until LocalPlayer.state.IsInSession
     local str = T.prompt
     local keyPress = Config.RespawnKey
-    prompt = PromptRegisterBegin()
-    PromptSetControlAction(prompt, keyPress)
-    str = CreateVarString(10, 'LITERAL_STRING', str)
-    PromptSetText(prompt, str)
-    PromptSetEnabled(prompt, 1)
-    PromptSetVisible(prompt, 1)
-    PromptSetHoldMode(prompt, Config.RespawnKeyTime)
-    PromptSetGroup(prompt, prompts)
-    Citizen.InvokeNative(0xC5F428EE08FA7F2C, prompt, true)
-    PromptRegisterEnd(prompt)
+    prompt = UiPromptRegisterBegin()
+    UiPromptSetControlAction(prompt, keyPress)
+    str = VarString(10, 'LITERAL_STRING', str)
+    UiPromptSetText(prompt, str)
+    UiPromptSetEnabled(prompt, true)
+    UiPromptSetVisible(prompt, true)
+    UiPromptSetHoldMode(prompt, Config.RespawnKeyTime)
+    UiPromptSetGroup(prompt, prompts, 0)
+    UiPromptSetPriority(prompt, 3)
+    UiPromptRegisterEnd(prompt)
 
     -- BM Doctor
     str = T.medicprompt
@@ -244,13 +247,13 @@ CreateThread(function()
     medicprompt = PromptRegisterBegin()
     PromptSetControlAction(medicprompt, keyPress)
     str = CreateVarString(10, 'LITERAL_STRING', str)
-    PromptSetText(medicprompt, str)
-    PromptSetEnabled(medicprompt, 1)
-    PromptSetVisible(medicprompt, 1)
-    PromptSetHoldMode(medicprompt, Config.CallMedicKeyTime)
-    PromptSetGroup(medicprompt, prompts)
+    UiPromptSetText(medicprompt, str)
+    UiPromptSetEnabled(medicprompt, 1)
+    UiPromptSetVisible(medicprompt, 1)
+    UiPromptSetHoldMode(medicprompt, Config.CallMedicKeyTime)
+    UiPromptSetGroup(medicprompt, prompts)
     Citizen.InvokeNative(0xC5F428EE08FA7F2C, medicprompt, true)
-    PromptRegisterEnd(medicprompt)
+    UiPromptRegisterEnd(medicprompt)
 end)
 
 -- EVENTS
@@ -346,11 +349,15 @@ CreateThread(function()
             if not setDead then
                 setDead = true
                 PressKey = false
-                PromptSetEnabled(prompt, true)
-                PromptSetEnabled(medicprompt, true)
+                UiPromptSetEnabled(prompt, true)
+                UiPromptSetEnabled(medicprompt, true)
                 NetworkSetInSpectatorMode(false, PlayerPedId())
                 exports.spawnmanager.setAutoSpawn(false)
-                TriggerServerEvent("vorp:ImDead", true)
+                TriggerServerEvent("vorp:ImDead", true) -- internal event
+
+                TriggerServerEvent("vorp_core:Server:OnPlayerDeath")
+                TriggerEvent("vorp_core:Client:OnPlayerDeath")
+
                 DisplayRadar(false)
                 CreateThread(function()
                     RespawnTimer()
@@ -366,18 +373,19 @@ CreateThread(function()
             if not PressKey and setDead then
                 sleep = 0
                 if not IsEntityAttachedToAnyPed(PlayerPedId()) then
-                    -- BM Doctor
                     if not LocalPlayer.state.IsUsingMedicalService then
-                        PromptSetActiveGroupThisFrame(prompts, CheckLabel())
+                        UiPromptSetActiveGroupThisFrame(prompts, CheckLabel(), 0, 0, 0, 0)
 
-                        if PromptHasHoldModeCompleted(prompt) then
-                            DoScreenFadeOut(3000)
-                            Wait(3000)
-                            CoreAction.Player.RespawnPlayer()
-                            PressKey      = true
-                            carried       = false
-                            Done          = false
-                            TimeToRespawn = Config.RespawnTime
+                        if UiPromptHasHoldModeCompleted(prompt) then
+                            if Config.CanRespawn() then
+                                DoScreenFadeOut(3000)
+                                Wait(3000)
+                                CoreAction.Player.RespawnPlayer(true)
+                                PressKey      = true
+                                carried       = false
+                                Done          = false
+                                TimeToRespawn = Config.RespawnTime
+                            end
                         end
 
                         if PromptHasHoldModeCompleted(medicprompt) then
@@ -392,26 +400,25 @@ CreateThread(function()
 
                     if TimeToRespawn >= 1 and setDead then
                         Done = false
-                        -- BM Doctor
+
                         if not LocalPlayer.state.IsUsingMedicalService then
-                            PromptSetEnabled(prompt, false)
+                            UiPromptSetEnabled(prompt, false)
                         end
                     else
                         Done = true
-                        -- BM Doctor
+
                         if not LocalPlayer.state.IsUsingMedicalService then
-                            PromptSetEnabled(prompt, true)
+                            UiPromptSetEnabled(prompt, true)
                         end
                     end
                     carried = false
                 else
                     if setDead then
-                        -- BM Doctor
                         if not LocalPlayer.state.IsUsingMedicalService then
-                            PromptSetActiveGroupThisFrame(prompts, CheckLabel())
-                            PromptSetEnabled(prompt, false)
-                            PromptSetEnabled(medicprompt, false)
+                            UiPromptSetActiveGroupThisFrame(prompts, CheckLabel(), 0, 0, 0, 0)
+                            UiPromptSetEnabled(prompt, false)
                         end
+
                         carried = true
                     end
                 end

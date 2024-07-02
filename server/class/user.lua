@@ -1,22 +1,3 @@
----@class User
----@field Source fun(value:number):number
----@field Numofcharacters fun(value:number):number
----@field Identifier fun(value:string):string
----@field License fun(value:string):string
----@field Group fun(value:string):string
----@field Playerwarnings fun(value:number):number
----@field Charperm fun(value:boolean):boolean
----@field GetUser fun():table
----@field UsedCharacter fun():table
----@field UserCharacters fun():table
----@field LoadCharacters fun()
----@field addCharacter fun(firstname:string, lastname:string, skin:table, comps:table)
----@field delCharacter fun(charIdentifier:number)
----@field GetUsedCharacter fun():table
----@field SetUsedCharacter fun(charid:number)
----@field SaveUser fun(coords:table, heading:number)
-
-
 ---@param source number
 ---@param identifier string
 ---@param group string
@@ -60,8 +41,7 @@ function User(source, identifier, group, playerwarnings, license, char)
                 Money = player.money,
                 Gold = player.gold,
                 Rol = player.rol,
-                ---@deprecated
-                IsInSession = true,
+                CharId = self.usedCharacterId,
             }, true)
         end
 
@@ -230,6 +210,7 @@ function User(source, identifier, group, playerwarnings, license, char)
                                 charDescription = character.character_desc,
                                 nickname = character.nickname,
                                 steamname = self.steamname,
+                                slots = character.slots or 200,
                             }
                             local newCharacter = Character(data)
                             self._usercharacters[newCharacter.CharIdentifier()] = newCharacter
@@ -271,6 +252,7 @@ function User(source, identifier, group, playerwarnings, license, char)
             charDescription = data.charDescription,
             nickname = data.nickname,
             steamname = self.steamname,
+            slots = Config.initInvCapacity or 200,
         }
 
         local newChar = Character(info)

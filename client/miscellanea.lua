@@ -39,12 +39,10 @@ end
 local function FillUpCores()
     local a2 = DataView.ArrayBuffer(12 * 8)
     local a3 = DataView.ArrayBuffer(12 * 8)
-    Citizen.InvokeNative("0xCB5D11F9508A928D", 1, a2:Buffer(), a3:Buffer(), GetHashKey("UPGRADE_HEALTH_TANK_1"),
-        1084182731, Config.maxHealth, 752097756)
+    Citizen.InvokeNative("0xCB5D11F9508A928D", 1, a2:Buffer(), a3:Buffer(), GetHashKey("UPGRADE_HEALTH_TANK_1"), 1084182731, Config.maxHealth, 752097756)
     local a2 = DataView.ArrayBuffer(12 * 8)
     local a3 = DataView.ArrayBuffer(12 * 8)
-    Citizen.InvokeNative("0xCB5D11F9508A928D", 1, a2:Buffer(), a3:Buffer(), GetHashKey("UPGRADE_STAMINA_TANK_1"),
-        1084182731, Config.maxStamina, 752097756)
+    Citizen.InvokeNative("0xCB5D11F9508A928D", 1, a2:Buffer(), a3:Buffer(), GetHashKey("UPGRADE_STAMINA_TANK_1"), 1084182731, Config.maxStamina, 752097756)
 end
 
 -- remove event notifications
@@ -54,9 +52,15 @@ local Events = {
     `EVENT_DAILY_CHALLENGE_STREAK_COMPLETED`
 }
 
+--f6 photo mode doesnt work so just hide the prompt
+local function disablePhotoMode()
+    DatabindingAddDataBoolFromPath('', 'bPauseMenuPhotoModeVisible', false)
+    DatabindingAddDataBoolFromPath('', 'bEnablePauseMenuPhotoMode', false)
+end
+
 CreateThread(function()
+    disablePhotoMode()
     HidePlayerCores()
-    FillUpCores()
     while true do
         Wait(0)
         local event = GetNumberOfEvents(0)
@@ -82,6 +86,7 @@ end)
 -- show players id when focus on other players
 CreateThread(function()
     repeat Wait(1000) until LocalPlayer.state.IsInSession
+    FillUpCores()
     while Config.showplayerIDwhenfocus do
         local sleep = 1000
         if #GetActivePlayers() > 1 then -- we also count ourselfs
@@ -93,6 +98,24 @@ CreateThread(function()
                 end
             end
         end
+
+        local playerPed = PlayerPedId()
+        local interiorId = GetInteriorFromEntity(playerPed)
+        local hash = interiorId ~= 0 and 0xDF5DB58C or 0x25B517BF
+        SetRadarConfigType(hash, 0)
+
         Wait(sleep)
+    end
+end)
+
+-- zoom in when in interiors for better navigation
+CreateThread(function()
+    repeat Wait(1000) until LocalPlayer.state.IsInSession
+    while true do
+        Wait(500)
+        local playerPed = PlayerPedId()
+        local interiorId = GetInteriorFromEntity(playerPed)
+        local hash = interiorId ~= 0 and 0xDF5DB58C or 0x25B517BF
+        SetRadarConfigType(hash, 0)
     end
 end)

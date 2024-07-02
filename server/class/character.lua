@@ -1,48 +1,3 @@
----@class Character
----@field identifier fun():string
----@field charIdentifier fun(value:string):string
----@field group fun(value:string):string
----@field job fun(value:string):string
----@field jobgrade fun(value:number):number
----@field joblabel fun(value:string):string
----@field firstname fun(value:string):string
----@field lastname fun(value:string):string
----@field age fun(value:string):string
----@field gender fun(value:string):string
----@field charDescription fun(value:string):string
----@field nickname fun(value:string):string
----@field inventory fun(value:string):string
----@field status fun(value:string):string
----@field coords fun(value:vector):vector
----@field money fun(value:number):number
----@field gold fun(value:number):number
----@field rol fun(value:number):number
----@field healthOuter fun(value:number):number
----@field healthInner fun(value:number):number
----@field staminaOuter fun(value:number):number
----@field staminaInner fun(value:number):number
----@field xp fun(value:number):number
----@field hours fun(value:number):number
----@field isdead fun(value:boolean):boolean
----@field skin fun(value:table):table
----@field comps fun(value:table):table
----@field getCharacter fun():table
----@field updateCharUi fun()
----@field addCurrency fun(currency:number, quantity:number)
----@field removeCurrency fun(currency:number, quantity:number)
----@field addXp fun(quantity:number)
----@field removeXp fun(quantity:number)
----@field saveHealthAndStamina fun(healthOuter:number, healthInner:number, staminaOuter:number, staminaInner:number)
----@field setJob fun(newjob:string)
----@field setGroup fun(newgroup:string)
----@field setDead fun(dead:boolean)
----@field UpdateHours fun(hours:number)
----@field SaveNewCharacterInDb fun(cb:function)
----@field DeleteCharacter fun()
----@field SaveCharacterCoords fun(coords:vector)
----@field SaveCharacterInDb fun()
-
-
 --- update state bags
 local function SetState(source, key, field, newValue)
     local state = Player(source).state[key]
@@ -52,8 +7,6 @@ local function SetState(source, key, field, newValue)
     end
 end
 
---- Character class
----@return Character @Character class
 function Character(data)
     local self = {}
     self.identifier = data.identifier
@@ -86,6 +39,7 @@ function Character(data)
     self.charDescription = data.charDescription
     self.nickname = data.nickname
     self.steamname = data.steamname
+    self.slots = data.slots
 
     self.Identifier = function()
         return self.identifier
@@ -96,20 +50,24 @@ function Character(data)
         return self.charIdentifier
     end
 
-    self.Group = function(value)
+    self.Group = function(value, flag)
         if value then
             self.group = value
-            TriggerEvent("vorp:playerGroupChange", self.source, self.group) -- listener for group change
+            if flag or flag == nil then -- alow true or nil, only false will not trigger the event
+                TriggerEvent("vorp:playerGroupChange", self.source, self.group)
+            end
             SetState(self.source, "Character", "Group", self.group)
         end
 
         return self.group
     end
 
-    self.Job = function(value)
+    self.Job = function(value, flag)
         if value then
             self.job = value
-            TriggerEvent("vorp:playerJobChange", self.source, self.job) -- listener for job change
+            if flag or flag == nil then -- alow true or nil, only false will not trigger the event
+                TriggerEvent("vorp:playerJobChange", self.source, self.job)
+            end
             SetState(self.source, "Character", "Job", self.job)
         end
         return self.job
@@ -124,10 +82,12 @@ function Character(data)
         return self.joblabel
     end
 
-    self.Jobgrade = function(value)
+    self.Jobgrade = function(value, flag)
         if value then
             self.jobgrade = value
-            TriggerEvent("vorp:playerJobGradeChange", self.source, self.jobgrade) -- listener for job grade change
+            if flag or flag == nil then -- alow true or nil, only false will not trigger the event
+                TriggerEvent("vorp:playerJobGradeChange", self.source, self.jobgrade)
+            end
             SetState(self.source, "Character", "Grade", self.jobgrade)
         end
 
@@ -353,8 +313,15 @@ function Character(data)
         self.hours = self.hours + hours
     end
 
+    self.setSlots = function(slots)
+        if slots then
+            self.slots = self.slots + slots
+        end
+        return self.slots
+    end
+
     self.SaveNewCharacterInDb = function(cb)
-        MySQL.query("INSERT INTO characters (`identifier`,`group`,`money`,`gold`,`rol`,`xp`,`healthouter`,`healthinner`,`staminaouter`,`staminainner`,`hours`,`inventory`,`job`,`status`,`firstname`,`lastname`,`skinPlayer`,`compPlayer`,`jobgrade`,`coords`,`isdead`,`joblabel`, `age`,`gender`,`character_desc`,`nickname`,`compTints`,`steamname`) VALUES (@identifier,@group, @money, @gold, @rol, @xp, @healthouter, @healthinner, @staminaouter, @staminainner, @hours, @inventory, @job, @status, @firstname, @lastname, @skinPlayer, @compPlayer, @jobgrade, @coords, @isdead, @joblabel, @age, @gender, @charDescription, @nickname,@compTints,@steamname)",
+        MySQL.query("INSERT INTO characters (`identifier`,`group`,`money`,`gold`,`rol`,`xp`,`healthouter`,`healthinner`,`staminaouter`,`staminainner`,`hours`,`inventory`,`job`,`status`,`firstname`,`lastname`,`skinPlayer`,`compPlayer`,`jobgrade`,`coords`,`isdead`,`joblabel`, `age`,`gender`,`character_desc`,`nickname`,`compTints`,`steamname`,`slots`) VALUES (@identifier,@group, @money, @gold, @rol, @xp, @healthouter, @healthinner, @staminaouter, @staminainner, @hours, @inventory, @job, @status, @firstname, @lastname, @skinPlayer, @compPlayer, @jobgrade, @coords, @isdead, @joblabel, @age, @gender, @charDescription, @nickname,@compTints,@steamname,@slots)",
             {
                 identifier = self.identifier,
                 group = self.group,
@@ -383,7 +350,8 @@ function Character(data)
                 charDescription = self.charDescription,
                 nickname = self.nickname,
                 compTints = self.compTints,
-                steamname = self.steamname
+                steamname = self.steamname,
+                slots = self.slots
             },
             function(character)
                 cb(character.insertId)
@@ -400,7 +368,7 @@ function Character(data)
 
     self.SaveCharacterInDb = function()
         MySQL.update(
-            "UPDATE characters SET `group` =@group ,`money` =@money ,`gold` =@gold ,`rol` =@rol ,`xp` =@xp ,`healthouter` =@healthouter ,`healthinner` =@healthinner ,`staminaouter` =@staminaouter ,`staminainner` =@staminainner ,`hours` =@hours ,`job` =@job , `status` =@status ,`firstname` =@firstname , `lastname` =@lastname , `jobgrade` =@jobgrade , `coords` =@coords , `isdead` =@isdead , `joblabel` =@joblabel, `age` =@age, `gender`=@gender, `character_desc`=@charDescription,`nickname`=@nickname,`steamname`=@steamname WHERE `identifier` =@identifier AND `charidentifier` =@charidentifier",
+            "UPDATE characters SET `group` =@group ,`money` =@money ,`gold` =@gold ,`rol` =@rol ,`xp` =@xp ,`healthouter` =@healthouter ,`healthinner` =@healthinner ,`staminaouter` =@staminaouter ,`staminainner` =@staminainner ,`hours` =@hours ,`job` =@job , `status` =@status ,`firstname` =@firstname , `lastname` =@lastname , `jobgrade` =@jobgrade , `coords` =@coords , `isdead` =@isdead , `joblabel` =@joblabel, `age` =@age, `gender`=@gender, `character_desc`=@charDescription,`nickname`=@nickname,`steamname`=@steamname, `slots` =@slots WHERE `identifier` =@identifier AND `charidentifier` =@charidentifier",
             {
                 group = self.group,
                 money = self.money,
@@ -426,7 +394,8 @@ function Character(data)
                 gender = self.gender,
                 charDescription = self.charDescription,
                 nickname = self.nickname,
-                steamname = self.steamname
+                steamname = self.steamname,
+                slots = self.slots
             })
     end
 
@@ -462,23 +431,27 @@ function Character(data)
         userData.gender = self.gender
         userData.charDescription = self.charDescription
         userData.nickname = self.nickname
+        userData.invCapacity = tonumber(self.slots)
 
+        userData.updateInvCapacity = function(slots)
+            self.setSlots(slots)
+        end
         userData.setStatus = function(status)
             self.Status(status)
         end
 
-        userData.setJobGrade = function(jobgrade)
-            self.Jobgrade(jobgrade)
+        userData.setJobGrade = function(jobgrade, flag)
+            self.Jobgrade(jobgrade, flag)
         end
         userData.setJobLabel = function(joblabel)
             self.Joblabel(joblabel)
         end
-        userData.setGroup = function(group)
-            self.Group(group)
+        userData.setGroup = function(group, flag)
+            self.Group(group, flag)
         end
 
-        userData.setJob = function(job)
-            self.Job(job)
+        userData.setJob = function(job, flag)
+            self.Job(job, flag)
         end
 
         userData.setMoney = function(money)
